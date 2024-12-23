@@ -1,3 +1,7 @@
+from datetime import datetime, timedelta
+
+chat_contexts_timestamps = {}
+
 import asyncio
 import platform
 import telebot
@@ -46,6 +50,16 @@ def cmd_start(message):
         "content": """
 Будь ласка, використовуйте звичайні математичні символи та знаки замість HTML-форматування. Наприклад, використовуйте *, /, ^, ≤, ≥, ≠, Σ, Π, √ та інші символи безпосередньо."""
     }]
+
+MAX_HISTORY_LENGTH = 10  # Максимальна кількість повідомлень у контексті
+
+if len(chat_contexts[chat_id]) > MAX_HISTORY_LENGTH:
+    chat_contexts[chat_id] = chat_contexts[chat_id][-MAX_HISTORY_LENGTH:]
+
+relevant_context = "\n".join([item["content"] for item in chat_contexts[chat_id] if item["role"] != "system"])
+prompt = f"Користувач спитав: {user_input}.\nІсторія бесіди:\n{relevant_context}"
+
+
 
 # Обробник кнопки "Закінчити розмову"
 @bot.message_handler(func=lambda msg: msg.text == "🛑 Закінчити розмову")
@@ -98,6 +112,14 @@ def handle_message(message):
 
     for msg in split_messages:
         bot.send_message(chat_id, msg)
+        chat_contexts_timestamps[chat_id] = datetime.now()
+def cleanup_contexts():
+    now = datetime.now()
+    for chat_id, timestamp in list(chat_contexts_timestamps.items()):
+        if now - timestamp > timedelta(hours=1):  # Контексти старше години
+            chat_contexts.pop(chat_id, None)
+            chat_contexts_timestamps.pop(chat_id, None)
+
 
 if __name__ == "__main__":
     print("Бот запущено!")
